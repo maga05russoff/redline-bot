@@ -24,6 +24,8 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('ban').setDescription('Заблокировать участника на сервере')
     .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true))
     .addStringOption(o => o.setName('reason').setDescription('Причина').setRequired(true).setMaxLength(500)),
+  new SlashCommandBuilder().setName('unban').setDescription('Снять блокировку участника')
+    .addStringOption(o => o.setName('user-id').setDescription('Discord ID участника').setRequired(true).setMinLength(17).setMaxLength(20)),
   new SlashCommandBuilder().setName('timeout').setDescription('Выдать временное ограничение общения')
     .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true))
     .addIntegerOption(o => o.setName('minutes').setDescription('Длительность от 1 до 40320 минут').setRequired(true).setMinValue(1).setMaxValue(40320))
@@ -54,7 +56,7 @@ async function requirePermission(interaction: ChatInputCommandInteraction, permi
   await interaction.reply({ content: 'У вас недостаточно прав для этой команды.', ephemeral: true });
   return false;
 }
-async function recordCase(interaction: ChatInputCommandInteraction, type: 'WARN'|'KICK'|'BAN'|'TIMEOUT'|'UNTIMEOUT', targetId: string, reason: string, durationMs?: number) {
+async function recordCase(interaction: ChatInputCommandInteraction, type: 'WARN'|'KICK'|'BAN'|'UNBAN'|'TIMEOUT'|'UNTIMEOUT', targetId: string, reason: string, durationMs?: number) {
   const gid = guildId(interaction);
   const latest = await prisma.modCase.findFirst({ where: { guildId: gid }, orderBy: { caseNumber: 'desc' }, select: { caseNumber: true } });
   const entry = await prisma.modCase.create({ data: {
@@ -113,6 +115,16 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     const user = interaction.options.getUser('user', true);
     const cases = await prisma.modCase.findMany({ where: { guildId: guildId(interaction), targetId: user.id, type: 'WARN' }, orderBy: { createdAt: 'desc' }, take: 10 });
     await interaction.reply({ content: cases.length ? cases.map(c => `**#${c.caseNumber}** — ${c.reason} • <t:${Math.floor(c.createdAt.getTime()/1000)}:d>`).join('\n') : 'Предупреждений не найдено.', ephemeral: true }); return;
+  }
+  if (interaction.commandName === 'unban') {
+    if (!await requirePermission(interaction, ban)) return;
+    const userId = interaction.options.getString('user-id', true);
+    if (!/^\\d{17,20}$/.test(userId)) { await interaction.reply({ content: 'Укажите корректный Discord ID.', ephemeral: true }); return; }
+    const banned = await interaction.guild?.bans.fetch(userId).catch(() => null);
+    if (!banned) { await interaction.reply({ content: 'Этот пользователь не найден в списке блокировок.', ephemeral: true }); return; }
+    await interaction.guild!.members.unban(userId, `Снято модератором ${interaction.user.tag}`);
+    await recordCase(interaction, 'UNBAN', userId, 'Блокировка снята модератором');
+    await interaction.reply({ content: `Блокировка пользователя ${userId} снята.`, ephemeral: true }); return;
   }
   if (interaction.commandName === 'kick' || interaction.commandName === 'ban' || interaction.commandName === 'timeout' || interaction.commandName === 'untimeout') {
     const needed = interaction.commandName === 'kick' ? kick : interaction.commandName === 'ban' ? ban : mod;
