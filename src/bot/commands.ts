@@ -4,6 +4,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type ButtonInteraction,
 } from 'discord.js';
@@ -196,18 +197,20 @@ export async function handleCommand(
 }
 
 async function manageRanks(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   const code = cleanCode(interaction.options.getString('code', true));
   const action = interaction.options.getString('action', true);
   const organization = await prisma.organization.findUnique({ where: { code } });
 
   if (!organization) {
-    await interaction.reply({ content: `Организация с кодом **${code}** не найдена.`, ephemeral: true });
+    await interaction.editReply({ content: `Организация с кодом **${code}** не найдена.`, ephemeral: true });
     return;
   }
 
   if (action === 'setup_prosecutor') {
     if (organization.code !== 'ПРОК') {
-      await interaction.reply({ content: 'Эта готовая структура предназначена только для организации с кодом ПРОК.', ephemeral: true });
+      await interaction.editReply({ content: 'Эта готовая структура предназначена только для организации с кодом ПРОК.', ephemeral: true });
       return;
     }
 
@@ -243,7 +246,7 @@ async function manageRanks(interaction: ChatInputCommandInteraction): Promise<vo
       });
     });
 
-    await interaction.reply({
+    await interaction.editReply({
       content: `Структура должностей для **${organization.name}** создана. Всего должностей: **${ranks.length}**.\n\n${ranks.map((name, i) => `**${i + 1}.** ${name}`).join('\n')}`,
       ephemeral: true,
     });
@@ -255,7 +258,7 @@ async function manageRanks(interaction: ChatInputCommandInteraction): Promise<vo
     orderBy: { level: 'asc' },
   });
 
-  await interaction.reply({
+  await interaction.editReply({
     content: ranks.length
       ? `**Должности организации ${organization.name}:**\n${ranks.map((rank) => `**${rank.level}.** ${rank.name}`).join('\n')}`
       : 'Для этой организации должности ещё не настроены.',
