@@ -3,7 +3,7 @@ import { env } from './config.js';
 import { handleButton, handleCommand } from './bot/commands.js';
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
 client.once(Events.ClientReady, readyClient => {
