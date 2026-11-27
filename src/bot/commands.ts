@@ -204,13 +204,13 @@ async function manageRanks(interaction: ChatInputCommandInteraction): Promise<vo
   const organization = await prisma.organization.findUnique({ where: { code } });
 
   if (!organization) {
-    await interaction.editReply({ content: `Организация с кодом **${code}** не найдена.`, ephemeral: true });
+    await interaction.editReply({ content: `Организация с кодом **${code}** не найдена.` });
     return;
   }
 
   if (action === 'setup_prosecutor') {
     if (organization.code !== 'ПРОК') {
-      await interaction.editReply({ content: 'Эта готовая структура предназначена только для организации с кодом ПРОК.', ephemeral: true });
+      await interaction.editReply({ content: 'Эта готовая структура предназначена только для организации с кодом ПРОК.' });
       return;
     }
 
@@ -248,7 +248,6 @@ async function manageRanks(interaction: ChatInputCommandInteraction): Promise<vo
 
     await interaction.editReply({
       content: `Структура должностей для **${organization.name}** создана. Всего должностей: **${ranks.length}**.\n\n${ranks.map((name, i) => `**${i + 1}.** ${name}`).join('\n')}`,
-      ephemeral: true,
     });
     return;
   }
@@ -262,7 +261,6 @@ async function manageRanks(interaction: ChatInputCommandInteraction): Promise<vo
     content: ranks.length
       ? `**Должности организации ${organization.name}:**\n${ranks.map((rank) => `**${rank.level}.** ${rank.name}`).join('\n')}`
       : 'Для этой организации должности ещё не настроены.',
-    ephemeral: true,
   });
 }
 
