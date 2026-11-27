@@ -97,3 +97,54 @@ model AuditLog {
   @@index([actorDiscordId, createdAt])
   @@index([targetType, targetId])
 }
+
+
+// Discord moderation modules (legacy roleplay tables above are retained for data safety).
+enum ModCaseType {
+  WARN
+  KICK
+  BAN
+  TIMEOUT
+  UNTIMEOUT
+  UNBAN
+}
+
+enum TicketStatus {
+  OPEN
+  CLOSED
+}
+
+model GuildConfig {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  logChannelId   String?
+  ticketCategoryId String?
+  supportRoleId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ModCase {
+  id          String      @id @default(cuid())
+  guildId     String
+  caseNumber  Int
+  type        ModCaseType
+  moderatorId String
+  targetId    String
+  reason      String
+  durationMs  Int?
+  createdAt   DateTime    @default(now())
+  @@unique([guildId, caseNumber])
+  @@index([guildId, targetId, createdAt])
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  guildId     String
+  channelId   String       @unique
+  openerId    String
+  status      TicketStatus @default(OPEN)
+  createdAt   DateTime     @default(now())
+  closedAt    DateTime?
+  @@index([guildId, openerId, status])
+}
