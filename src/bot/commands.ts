@@ -60,7 +60,7 @@ export const commandDefinitions = [
               { name: 'Показать должности', value: 'list' },
             ),
         ),
-    ),
+    )
     .addSubcommand((subcommand) =>
       subcommand
         .setName('create')
