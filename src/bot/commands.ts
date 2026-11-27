@@ -206,8 +206,8 @@ async function manageRanks(interaction: ChatInputCommandInteraction): Promise<vo
   }
 
   if (action === 'setup_prosecutor') {
-    if (organization.code !== 'PROK') {
-      await interaction.reply({ content: 'Эта готовая структура предназначена только для организации с кодом PROK.', ephemeral: true });
+    if (organization.code !== 'ПРОК') {
+      await interaction.reply({ content: 'Эта готовая структура предназначена только для организации с кодом ПРОК.', ephemeral: true });
       return;
     }
 
