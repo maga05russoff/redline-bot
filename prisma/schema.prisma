@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationType {
+  GOVERNMENT
+  COMMERCIAL
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DISMISSED
+}
+
+enum AuditOutcome {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+model User {
+  id             String   @id @default(cuid())
+  discordId      String   @unique
+  displayName    String
+  locale         String   @default("ru")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  memberships    OrganizationMember[]
+  auditEvents    AuditLog[] @relation("AuditActor")
+}
+
+model Organization {
+  id          String             @id @default(cuid())
+  name        String
+  code        String             @unique
+  type        OrganizationType
+  status      OrganizationStatus @default(ACTIVE)
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  ranks       OrganizationRank[]
+  members     OrganizationMember[]
+}
+
+model OrganizationRank {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  level          Int
+  permissions   Json?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        OrganizationMember[]
+  @@unique([organizationId, level])
+  @@unique([organizationId, name])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  rankId         String?
+  status         MemberStatus @default(PENDING)
+  joinedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rank           OrganizationRank? @relation(fields: [rankId], references: [id], onDelete: SetNull)
+  @@unique([userId, organizationId])
+  @@index([organizationId, status])
+}
+
+model AuditLog {
+  id          String       @id @default(cuid())
+  actorId     String?
+  actorDiscordId String
+  action      String
+  targetType  String
+  targetId    String?
+  outcome     AuditOutcome
+  details     Json?
+  createdAt   DateTime     @default(now())
+  actor       User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([createdAt])
+  @@index([actorDiscordId, createdAt])
+  @@index([targetType, targetId])
+}
