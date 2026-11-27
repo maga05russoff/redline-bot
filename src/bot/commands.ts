@@ -41,6 +41,28 @@ export const commandDefinitions = [
     )
     .addSubcommand((subcommand) =>
       subcommand
+        .setName('ranks')
+        .setDescription('Настроить и показать должности организации')
+        .addStringOption((option) =>
+          option
+            .setName('code')
+            .setDescription('Код организации')
+            .setRequired(true)
+            .setMaxLength(16),
+        )
+        .addStringOption((option) =>
+          option
+            .setName('action')
+            .setDescription('Действие')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Создать утверждённую структуру прокуратуры', value: 'setup_prosecutor' },
+              { name: 'Показать должности', value: 'list' },
+            ),
+        ),
+    ),
+    .addSubcommand((subcommand) =>
+      subcommand
         .setName('create')
         .setDescription('Создать новую организацию')
         .addStringOption((option) =>
@@ -153,6 +175,11 @@ export async function handleCommand(
 
   const subcommand = interaction.options.getSubcommand();
 
+  if (subcommand === 'ranks') {
+    await manageRanks(interaction);
+    return;
+  }
+
   if (subcommand === 'create') {
     await createOrganization(interaction);
     return;
@@ -166,6 +193,74 @@ export async function handleCommand(
   if (subcommand === 'view') {
     await viewOrganization(interaction);
   }
+}
+
+async function manageRanks(interaction: ChatInputCommandInteraction): Promise<void> {
+  const code = cleanCode(interaction.options.getString('code', true));
+  const action = interaction.options.getString('action', true);
+  const organization = await prisma.organization.findUnique({ where: { code } });
+
+  if (!organization) {
+    await interaction.reply({ content: `Организация с кодом **${code}** не найдена.`, ephemeral: true });
+    return;
+  }
+
+  if (action === 'setup_prosecutor') {
+    if (organization.code !== 'PROK') {
+      await interaction.reply({ content: 'Эта готовая структура предназначена только для организации с кодом PROK.', ephemeral: true });
+      return;
+    }
+
+    const ranks = [
+      'Стажёр прокуратуры',
+      'Помощник прокурора',
+      'Прокурор',
+      'Старший прокурор',
+      'Заместитель начальника управления',
+      'Начальник управления',
+      'Заместитель генерального прокурора',
+      'Первый заместитель генерального прокурора',
+      'Генеральный прокурор',
+    ];
+
+    await prisma.$transaction(async (tx) => {
+      for (let i = 0; i < ranks.length; i += 1) {
+        await tx.organizationRank.upsert({
+          where: { organizationId_level: { organizationId: organization.id, level: i + 1 } },
+          update: { name: ranks[i] },
+          create: { organizationId: organization.id, name: ranks[i], level: i + 1 },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorDiscordId: interaction.user.id,
+          action: 'ORG_RANKS_SETUP',
+          targetType: 'ORGANIZATION',
+          targetId: organization.id,
+          outcome: 'SUCCESS',
+          details: { ranks },
+        },
+      });
+    });
+
+    await interaction.reply({
+      content: `Структура должностей для **${organization.name}** создана. Всего должностей: **${ranks.length}**.\n\n${ranks.map((name, i) => `**${i + 1}.** ${name}`).join('\n')}`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const ranks = await prisma.organizationRank.findMany({
+    where: { organizationId: organization.id },
+    orderBy: { level: 'asc' },
+  });
+
+  await interaction.reply({
+    content: ranks.length
+      ? `**Должности организации ${organization.name}:**\n${ranks.map((rank) => `**${rank.level}.** ${rank.name}`).join('\n')}`
+      : 'Для этой организации должности ещё не настроены.',
+    ephemeral: true,
+  });
 }
 
 async function createOrganization(
