@@ -14,32 +14,32 @@ export const commandDefinitions = [
   new SlashCommandBuilder().setName('ping').setDescription('Проверить доступность RedLine Bot'),
   new SlashCommandBuilder().setName('panel').setDescription('Показать панель управления ботом'),
   new SlashCommandBuilder().setName('warn').setDescription('Выдать предупреждение участнику')
-    .addUserOption(o => o.setName('участник').setDescription('Кому выдать предупреждение').setRequired(true))
-    .addStringOption(o => o.setName('причина').setDescription('Причина').setRequired(true).setMaxLength(500)),
+    .addUserOption(o => o.setName('user').setDescription('Кому выдать предупреждение').setRequired(true))
+    .addStringOption(o => o.setName('reason').setDescription('Причина').setRequired(true).setMaxLength(500)),
   new SlashCommandBuilder().setName('warnings').setDescription('Посмотреть предупреждения участника')
-    .addUserOption(o => o.setName('участник').setDescription('Участник').setRequired(true)),
+    .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true)),
   new SlashCommandBuilder().setName('kick').setDescription('Исключить участника с сервера')
-    .addUserOption(o => o.setName('участник').setDescription('Участник').setRequired(true))
-    .addStringOption(o => o.setName('причина').setDescription('Причина').setRequired(true).setMaxLength(500)),
+    .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true))
+    .addStringOption(o => o.setName('reason').setDescription('Причина').setRequired(true).setMaxLength(500)),
   new SlashCommandBuilder().setName('ban').setDescription('Заблокировать участника на сервере')
-    .addUserOption(o => o.setName('участник').setDescription('Участник').setRequired(true))
-    .addStringOption(o => o.setName('причина').setDescription('Причина').setRequired(true).setMaxLength(500)),
+    .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true))
+    .addStringOption(o => o.setName('reason').setDescription('Причина').setRequired(true).setMaxLength(500)),
   new SlashCommandBuilder().setName('timeout').setDescription('Выдать временное ограничение общения')
-    .addUserOption(o => o.setName('участник').setDescription('Участник').setRequired(true))
-    .addIntegerOption(o => o.setName('минуты').setDescription('Длительность от 1 до 40320 минут').setRequired(true).setMinValue(1).setMaxValue(40320))
-    .addStringOption(o => o.setName('причина').setDescription('Причина').setRequired(true).setMaxLength(500)),
+    .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true))
+    .addIntegerOption(o => o.setName('minutes').setDescription('Длительность от 1 до 40320 минут').setRequired(true).setMinValue(1).setMaxValue(40320))
+    .addStringOption(o => o.setName('reason').setDescription('Причина').setRequired(true).setMaxLength(500)),
   new SlashCommandBuilder().setName('untimeout').setDescription('Снять ограничение общения')
-    .addUserOption(o => o.setName('участник').setDescription('Участник').setRequired(true)),
+    .addUserOption(o => o.setName('user').setDescription('Участник').setRequired(true)),
   new SlashCommandBuilder().setName('ticket').setDescription('Управление тикетами')
     .addSubcommand(s => s.setName('panel').setDescription('Опубликовать панель создания тикетов'))
     .addSubcommand(s => s.setName('close').setDescription('Закрыть текущий тикет')),
   new SlashCommandBuilder().setName('botconfig').setDescription('Настройки RedLine Bot')
     .addSubcommand(s => s.setName('logs').setDescription('Установить канал журналов')
-      .addChannelOption(o => o.setName('канал').setDescription('Текстовый канал').addChannelTypes(ChannelType.GuildText).setRequired(true)))
+      .addChannelOption(o => o.setName('channel').setDescription('Текстовый канал').addChannelTypes(ChannelType.GuildText).setRequired(true)))
     .addSubcommand(s => s.setName('ticket-category').setDescription('Установить категорию тикетов')
-      .addChannelOption(o => o.setName('категория').setDescription('Категория каналов').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
+      .addChannelOption(o => o.setName('category').setDescription('Категория каналов').addChannelTypes(ChannelType.GuildCategory).setRequired(true)))
     .addSubcommand(s => s.setName('support-role').setDescription('Установить роль поддержки')
-      .addRoleOption(o => o.setName('роль').setDescription('Роль сотрудников поддержки').setRequired(true))),
+      .addRoleOption(o => o.setName('role').setDescription('Роль сотрудников поддержки').setRequired(true))),
 ];
 
 function guildId(interaction: ChatInputCommandInteraction | ButtonInteraction): string {
@@ -103,36 +103,36 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
   }
   if (interaction.commandName === 'warn') {
     if (!await requirePermission(interaction, mod)) return;
-    const user = interaction.options.getUser('участник', true);
-    const reason = interaction.options.getString('причина', true);
+    const user = interaction.options.getUser('user', true);
+    const reason = interaction.options.getString('reason', true);
     await recordCase(interaction, 'WARN', user.id, reason);
     await interaction.reply({ content: `Предупреждение выдано <@${user.id}>. Причина: ${reason}`, ephemeral: true }); return;
   }
   if (interaction.commandName === 'warnings') {
     if (!await requirePermission(interaction, mod)) return;
-    const user = interaction.options.getUser('участник', true);
+    const user = interaction.options.getUser('user', true);
     const cases = await prisma.modCase.findMany({ where: { guildId: guildId(interaction), targetId: user.id, type: 'WARN' }, orderBy: { createdAt: 'desc' }, take: 10 });
     await interaction.reply({ content: cases.length ? cases.map(c => `**#${c.caseNumber}** — ${c.reason} • <t:${Math.floor(c.createdAt.getTime()/1000)}:d>`).join('\n') : 'Предупреждений не найдено.', ephemeral: true }); return;
   }
   if (interaction.commandName === 'kick' || interaction.commandName === 'ban' || interaction.commandName === 'timeout' || interaction.commandName === 'untimeout') {
     const needed = interaction.commandName === 'kick' ? kick : interaction.commandName === 'ban' ? ban : mod;
     if (!await requirePermission(interaction, needed)) return;
-    const user = interaction.options.getUser('участник', true);
+    const user = interaction.options.getUser('user', true);
     const target = await getTarget(interaction, user.id);
     if (!target) { await interaction.reply({ content: 'Нельзя выполнить действие: участник недоступен или находится выше бота/вас по иерархии ролей.', ephemeral: true }); return; }
     if (interaction.commandName === 'kick') {
-      const reason = interaction.options.getString('причина', true);
+      const reason = interaction.options.getString('reason', true);
       await target.kick(reason); await recordCase(interaction, 'KICK', user.id, reason);
       await interaction.reply({ content: `Участник <@${user.id}> исключён. Причина: ${reason}`, ephemeral: true }); return;
     }
     if (interaction.commandName === 'ban') {
-      const reason = interaction.options.getString('причина', true);
+      const reason = interaction.options.getString('reason', true);
       await target.ban({ reason }); await recordCase(interaction, 'BAN', user.id, reason);
       await interaction.reply({ content: `Участник <@${user.id}> заблокирован. Причина: ${reason}`, ephemeral: true }); return;
     }
     if (interaction.commandName === 'timeout') {
-      const minutes = interaction.options.getInteger('минуты', true);
-      const reason = interaction.options.getString('причина', true);
+      const minutes = interaction.options.getInteger('minutes', true);
+      const reason = interaction.options.getString('reason', true);
       await target.timeout(minutes * 60_000, reason); await recordCase(interaction, 'TIMEOUT', user.id, reason, minutes * 60_000);
       await interaction.reply({ content: `Ограничение выдано <@${user.id}> на ${minutes} мин.`, ephemeral: true }); return;
     }
@@ -162,10 +162,10 @@ export async function handleCommand(interaction: ChatInputCommandInteraction): P
     if (!await requirePermission(interaction, admin)) return;
     const sub = interaction.options.getSubcommand();
     const data = sub === 'logs'
-      ? { logChannelId: interaction.options.getChannel('канал', true).id }
+      ? { logChannelId: interaction.options.getChannel('channel', true).id }
       : sub === 'ticket-category'
-        ? { ticketCategoryId: interaction.options.getChannel('категория', true).id }
-        : { supportRoleId: interaction.options.getRole('роль', true).id };
+        ? { ticketCategoryId: interaction.options.getChannel('category', true).id }
+        : { supportRoleId: interaction.options.getRole('role', true).id };
     await prisma.guildConfig.upsert({ where: { guildId: guildId(interaction) }, create: { guildId: guildId(interaction), ...data }, update: data });
     await interaction.reply({ content: 'Настройка сохранена.', ephemeral: true }); return;
   }
